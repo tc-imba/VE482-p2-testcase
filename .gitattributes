@@ -1,0 +1,2 @@
+*.tbl filter=lfs diff=lfs merge=lfs -text
+*.query filter=lfs diff=lfs merge=lfs -text
