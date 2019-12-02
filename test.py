@@ -20,11 +20,11 @@ import progressbar
 from logzero import logger
 
 TEST_QUERY = [
-    'test',
-    'single_read',
-    'single_read_update',
-    'single_read_dup',
-    'single_insert_delete',
+    ('test', 1),
+    ('single_read', 25),
+    ('single_read_update', 25),
+    ('single_read_dup', 35),
+    ('single_insert_delete', 20),
     # 'few_read',
     # 'few_read_update',
     # 'few_read_dup',
@@ -145,7 +145,7 @@ def test(program, query, data_dir, temp_dir, times=5, generate_answer=False, sug
         logger.info('Generate answer for %s.query ...', query)
         for i in range(times):
             status, realtime = run(program, data, temp_dir)
-            update_pbar(1)
+            update_pbar(suggest_timeout)
             results.append((status, realtime))
             logger.info('%2d: %.3f s', i + 1, realtime)
 
@@ -259,29 +259,24 @@ def main(project_dir, rebuild, data_dir, generate_answer, times):
                     time_data = list(map(lambda x: float(x), row[1:]))
                     base_time[query] = calculate_average_time(time_data)
                     total_base_time += base_time[query]
+    else:
+        for query, unit_time in TEST_QUERY:
+            base_time[query] = unit_time
+            total_base_time += base_time[query]
 
-                    # print(base_time)
-
-    # widgets = [progressbar.Bar('>'), ' ', progressbar.ETA()]
+            # widgets = [progressbar.Bar('>'), ' ', progressbar.ETA()]
     # pbar = progressbar.ProgressBar(widgets=widgets, maxval=len(TEST_QUERY) * times).start()
     widgets = [
-        ' [', progressbar.Timer(), '] ',
+        ' [', progressbar.Percentage(), '] ',
         progressbar.Bar(),
         ' (', progressbar.ETA(), ') \n']
-    if generate_answer:
-        progress_max_value = len(TEST_QUERY) * times
-    else:
-        progress_max_value = total_base_time * times
+    progress_max_value = total_base_time * times
     pbar = progressbar.ProgressBar(max_value=progress_max_value, widgets=widgets).start()
 
-    for query in TEST_QUERY:
-        if query in base_time:
-            timeout = base_time[query]
-        else:
-            timeout = 1000
+    for query, unit_time in TEST_QUERY:
         result = test(program, query, data_dir, temp_dir,
                       generate_answer=generate_answer, times=times,
-                      suggest_timeout=timeout)
+                      suggest_timeout=base_time[query])
         results.append(result)
 
         # break
@@ -293,7 +288,7 @@ def main(project_dir, rebuild, data_dir, generate_answer, times):
             writer = csv.writer(f)
             writer.writerow(['query'] + list(map(lambda x: str(x + 1), range(times))))
             for i in range(len(TEST_QUERY)):
-                writer.writerow([TEST_QUERY[i]] + list(map(lambda x: str(x[1]), results[i])))
+                writer.writerow([TEST_QUERY[i][0]] + list(map(lambda x: str(x[1]), results[i])))
 
     # print   (program)
 
