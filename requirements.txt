@@ -1,2 +1,7 @@
 click
-pymemfd
+py-cpuinfo
+psutil
+humanize
+memory-tempfile
+progressbar2
+logzero
