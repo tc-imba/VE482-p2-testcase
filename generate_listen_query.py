@@ -28,4 +28,4 @@ if __name__ == '__main__':
     generate('query/single_read.query', 'listen_read.query', 'query', 3)
     generate('query/single_read_dup.query', 'listen_read_dup.query', 'query', 3)
     generate('query/single_read_update.query', 'listen_read_update.query', 'query', 3)
-    generate('query/single_insert_delete.query', 'listen_read_delete.query', 'query', 3)
+    generate('query/single_insert_delete.query', 'listen_insert_delete.query', 'query', 3)
