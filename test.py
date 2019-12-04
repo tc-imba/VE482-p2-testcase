@@ -9,6 +9,8 @@ import shutil
 import subprocess
 import time
 import filecmp
+import multiprocessing
+import re
 # import logger
 
 import click
@@ -20,11 +22,13 @@ import progressbar
 from logzero import logger
 
 TEST_QUERY = [
-    ('test', 1),
-    ('single_read', 25),
-    ('single_read_update', 25),
-    ('single_read_dup', 35),
-    ('single_insert_delete', 20),
+    # ('test', 1),
+    ('listen_test', 1),
+    # ('single_read', 25),
+    # ('single_read_update', 25),
+    # ('single_read_dup', 35),
+    # ('single_insert_delete', 20),
+    # ('listen_read', 25),
     # 'few_read',
     # 'few_read_update',
     # 'few_read_dup',
@@ -69,7 +73,8 @@ def build(project_dir, build_dir, clean=False):
     os.makedirs(build_dir, exist_ok=True)
     os.chdir(build_dir)
 
-    if execute("cmake", "-DCMAKE_BUILD_TYPE=Release", "..") != 0:
+    if execute("cmake", "-DCMAKE_BUILD_TYPE=Debug", "..") != 0:
+        # if execute("cmake", "-DCMAKE_BUILD_TYPE=Release", "..") != 0:
         logger.error("CMake failed!")
         exit(-1)
 
@@ -85,47 +90,166 @@ def build(project_dir, build_dir, clean=False):
     return os.path.join(project_dir, build_dir, 'lemondb')
 
 
-def run(program, data, temp_dir, timeout=1000, answer_dir=None):
+def __run(q, program, base_query_file, query_files, temp_dir, timeout, answer_dir):
     if answer_dir:
         answer_dir = os.path.abspath(answer_dir)
 
     working_dir = os.getcwd()
     runtime_dir = os.path.join(temp_dir, 'runtime')
-    shutil.rmtree(runtime_dir, ignore_errors=True)
-    os.makedirs(runtime_dir, exist_ok=True)
-    os.chdir(runtime_dir)
 
-    os.mkfifo('test.fifo')
-    out_fd = os.open('stdout', os.O_WRONLY | os.O_CREAT)
-    status = None
+    status = "AC"
+    start = 0
+    realtime = 0,
+    exception = None
+    p = None
 
-    p = subprocess.Popen([program, "--listen=test.fifo"], stdout=out_fd, stderr=subprocess.DEVNULL)
-    start = time.time_ns()
+    # def pipe_query_file(query_file_name):
+    #     # print(query_file_name)
+    #     fd = os.open(query_file_name, os.O_WRONLY)
+    #     for data_type, data in query_files[query_file_name]:
+    #         if data_type == "query":
+    #             os.write(fd, data)
+    #         else:
+    #             pipe_query_file(data)
+    #     os.close(fd)
+
+    def continue_pipe_query_file(query_file_stack, line_now):
+        if len(query_file_stack) == 0:
+            return line_now
+        query_file_now, fd, i = query_file_stack[-1]
+        if i == len(query_files[query_file_now]):
+            # os.close(fd)
+            query_file_stack.pop()
+            return continue_pipe_query_file(query_file_stack, line_now)
+        data_lines, data = query_files[query_file_now][i]
+        query_file_stack[-1] = (query_file_now, fd, i + 1)
+        if data_lines > 0:
+            # print(data)
+            os.write(fd, data)
+            line_now += data_lines
+            if i + 1 != len(query_files[query_file_now]):
+                return continue_pipe_query_file(query_file_stack, line_now)
+            else:
+                os.close(fd)
+                return line_now
+        else:
+            fd = os.open(data, os.O_WRONLY)
+            query_file_stack.append((data, fd, 0))
+            return continue_pipe_query_file(query_file_stack, line_now)
 
     try:
-        fd = os.open('test.fifo', os.O_WRONLY)
-        os.write(fd, data)
-        os.close(fd)
+        shutil.rmtree(runtime_dir, ignore_errors=True)
+        os.makedirs(runtime_dir, exist_ok=True)
+        os.chdir(runtime_dir)
+
+        for query_file in query_files.keys():
+            os.mkfifo(query_file)
+
+        # out_fd = os.open('stdout', os.O_WRONLY | os.O_CREAT)
+
+        p = subprocess.Popen([program, "--listen=" + base_query_file], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                             universal_newlines=True
+                             #  stdout=out_fd, stderr=subprocess.DEVNULL)
+                             )
+        start = time.time_ns()
+
+        base_query_fd = os.open(base_query_file, os.O_WRONLY)
+        query_file_stack = [(base_query_file, base_query_fd, 0)]
+        line_expect = continue_pipe_query_file(query_file_stack, 0)
+        print(line_expect)
+
+        # fd = os.open('test.fifo', os.O_WRONLY)
+        # os.write(fd, data)
+        # os.close(fd)
+        # pipe_query_file(base_query_file)
+
+        stdout = []
+        while p.poll() is None:
+            line = p.stdout.readline()
+            stdout.append(line)
+            # print(line)
+            line = line.rstrip()
+            if line.isdigit():
+                print(line)
         p.wait(timeout)
+
+        end = time.time_ns()
+
+        if p.returncode != 0:
+            status = "RTE"
+
+        with open('stdout', 'w') as f:
+            f.writelines(stdout)
+
+        # os.close(out_fd)
+        for query_file in query_files.keys():
+            os.remove(query_file)
+
+        realtime = (end - start) / 1e9
+        os.chdir(working_dir)
+
+        if answer_dir and status == "AC":
+            dcmp = filecmp.dircmp(answer_dir, runtime_dir)
+            if dcmp.diff_files:
+                status = "WA"
+
+
     except subprocess.TimeoutExpired:
         status = "TLE"
-    except:
+    except Exception as e:
         status = "RTE"
+        exception = e
 
-    end = time.time_ns()
+    if start != 0 and realtime == 0:
+        end = time.time_ns()
+        realtime = (end - start) / 1e9
 
-    os.close(out_fd)
-    os.remove('test.fifo')
+    if p and p.poll() is None:
+        p.kill()
 
-    realtime = (end - start) / 1e9
-    os.chdir(working_dir)
+    q.put((status, realtime, exception))
 
-    if answer_dir:
-        dcmp = filecmp.dircmp(answer_dir, runtime_dir)
-        if dcmp.diff_files:
-            status = "WA"
 
-    return status, realtime
+def run(program, base_query_file, query_files, temp_dir, timeout=1000, answer_dir=None):
+    q = multiprocessing.Queue()
+    p = multiprocessing.Process(target=__run,
+                                args=(q, program, base_query_file, query_files, temp_dir, timeout, answer_dir,))
+    p.start()
+    p.join(timeout)
+    p.kill()
+    if p.exitcode == 0:
+        status, realtime, exception = q.get()
+        if exception:
+            logger.exception(exception)
+        return status, realtime
+    else:
+        return "TLE", timeout
+
+
+def read_query(query_dir, query):
+    query_files = {}
+
+    def add_query_file(filename):
+        if filename in query_files:
+            return
+        query_files[filename] = []
+        with open(os.path.join(query_dir, filename), 'r') as f:
+            lines = f.readlines()
+        start = 0
+        for i, line in enumerate(lines):
+            if line.startswith("LISTEN"):
+                query_files[filename].append((i + 1 - start, ''.join(lines[start:i + 1]).encode('UTF-8')))
+                result = re.findall(r"\(.+\)", line)
+                if result:
+                    listen_query_filename = result[0].strip('( )')
+                    add_query_file(listen_query_filename)
+                    query_files[filename].append((0, listen_query_filename))
+                start = i + 1
+        if start < len(lines):
+            query_files[filename].append((len(lines) - start, ''.join(lines[start:]).encode('utf-8')))
+
+    add_query_file(query)
+    return query_files
 
 
 def test(program, query, data_dir, temp_dir, times=5, generate_answer=False, suggest_timeout=0):
@@ -135,34 +259,42 @@ def test(program, query, data_dir, temp_dir, times=5, generate_answer=False, sug
     answer_dir = os.path.join(data_dir, 'answer', query)
 
     program = os.path.abspath(program)
-    query_file = os.path.join(query_dir, query + '.query')
+    base_query_file = query + '.query'
+    query_files = read_query(query_dir, base_query_file)
     results = []
 
-    with open(query_file, 'rb') as f:
-        data = f.read()
+    # exit(1)
+    #
+    # with open(query_file, 'rb') as f:
+    #     data = f.read()
 
     if generate_answer:
         logger.info('Generate answer for %s.query ...', query)
         for i in range(times):
-            status, realtime = run(program, data, temp_dir)
+            status, realtime = run(program, base_query_file, query_files, temp_dir)
             update_pbar(suggest_timeout)
             results.append((status, realtime))
-            logger.info('%2d: %.3f s', i + 1, realtime)
+            logger.info('%2d: %s %.3f s', i + 1, status, realtime)
 
-        os.makedirs(answer_dir, exist_ok=True)
-        shutil.rmtree(answer_dir, ignore_errors=True)
-        runtime_dir = os.path.join(temp_dir, 'runtime')
-        shutil.copytree(runtime_dir, answer_dir)
+        if results[-1][0] == "AC":
+            os.makedirs(answer_dir, exist_ok=True)
+            shutil.rmtree(answer_dir, ignore_errors=True)
+            runtime_dir = os.path.join(temp_dir, 'runtime')
+            shutil.copytree(runtime_dir, answer_dir)
+        else:
+            logger.error('Error: %s', results[-1][0])
+
     else:
         logger.info('Test %s.query ...', query)
         if not os.path.exists(answer_dir):
             logger.error('Error: answer not found!')
             exit(-1)
         for i in range(times):
-            status, realtime = run(program, data, temp_dir, timeout=suggest_timeout * 2, answer_dir=answer_dir)
+            status, realtime = run(program, base_query_file, query_files, temp_dir, timeout=suggest_timeout * 2,
+                                   answer_dir=answer_dir)
             update_pbar(suggest_timeout)
             results.append((status, realtime))
-            logger.info('%2d: %.3f s', i + 1, realtime)
+            logger.info('%2d: %s %.3f s', i + 1, status, realtime)
 
     os.chdir(working_dir)
     return results
@@ -224,6 +356,19 @@ def update_pbar(value):
         pbar.update(progress_now)
 
 
+def save_result(results, columns, time_path, status_path):
+    with open(time_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['query'] + list(map(lambda x: str(x + 1), range(columns))))
+        for i in range(len(TEST_QUERY)):
+            writer.writerow([TEST_QUERY[i][0]] + list(map(lambda x: str(x[1]), results[i])))
+    with open(status_path, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['query'] + list(map(lambda x: str(x + 1), range(columns))))
+        for i in range(len(TEST_QUERY)):
+            writer.writerow([TEST_QUERY[i][0]] + list(map(lambda x: str(x[0]), results[i])))
+
+
 @click.command()
 @click.option('-p', '--project-dir', required=True, help='LemonDB Directory.')
 @click.option('--rebuild', is_flag=True, help='Rebuild tmpfs and project')
@@ -240,6 +385,7 @@ def main(project_dir, rebuild, data_dir, generate_answer, times):
     temp_dir = init_tmpfs(data_dir)
     program = build(project_dir, 'build', rebuild)
     answer_time_path = os.path.join(data_dir, 'answer', 'time.csv')
+    answer_status_path = os.path.join(data_dir, 'answer', 'status.csv')
     results = []
     base_time = {}
     total_base_time = 0
@@ -284,13 +430,9 @@ def main(project_dir, rebuild, data_dir, generate_answer, times):
 
     logger.debug(results)
     if generate_answer:
-        with open(answer_time_path, 'w', newline='') as f:
-            writer = csv.writer(f)
-            writer.writerow(['query'] + list(map(lambda x: str(x + 1), range(times))))
-            for i in range(len(TEST_QUERY)):
-                writer.writerow([TEST_QUERY[i][0]] + list(map(lambda x: str(x[1]), results[i])))
-
-    # print   (program)
+        save_result(results, times, answer_time_path, answer_status_path)
+    else:
+        pass
 
 
 if __name__ == '__main__':
