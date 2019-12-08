@@ -8,10 +8,10 @@ import os
 import shutil
 import subprocess
 import time
-import filecmp
 import multiprocessing
+import threading
+from queue import Queue
 import re
-# import logger
 
 import click
 import cpuinfo
@@ -22,16 +22,16 @@ import progressbar
 from logzero import logger
 
 TEST_QUERY = [
-    ('test', 1),
+    # ('test', 1),
     ('listen_test', 1),
-    ('single_read', 25),
-    ('single_read_update', 25),
-    ('single_read_dup', 35),
-    ('single_insert_delete', 20),
-    ('listen_read', 25),
-    ('listen_read_update', 25),
-    ('listen_read_dup', 35),
-    ('listen_insert_delete', 20),
+    # ('single_read', 25),
+    # ('single_read_update', 25),
+    # ('single_read_dup', 35),
+    # ('single_insert_delete', 20),
+    # ('listen_read', 25),
+    # ('listen_read_update', 25),
+    # ('listen_read_dup', 35),
+    # ('listen_insert_delete', 20),
     # 'few_read',
     # 'few_read_update',
     # 'few_read_dup',
@@ -106,16 +106,18 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
     exception = None
     p = None
 
-    def continue_pipe_query_file(query_file_stack, line_now):
+    def continue_pipe_query_file(query_file_stack, line_now, close_current=False):
         if len(query_file_stack) == 0:
             return line_now
         query_file_now, fd, i = query_file_stack[-1]
-        # print(query_file_now, i, line_now)
+        # print(query_file_now, fd, i, line_now)
         if i == len(query_files[query_file_now]):
             # print("close " + query_file_now)
             os.close(fd)
             query_file_stack.pop()
-            return continue_pipe_query_file(query_file_stack, line_now)
+            return continue_pipe_query_file(query_file_stack, line_now, close_current)
+        if close_current:
+            return line_now
         data_lines, data = query_files[query_file_now][i]
         query_file_stack[-1] = (query_file_now, fd, i + 1)
         if data_lines > 0:
@@ -124,13 +126,35 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
             line_now += data_lines
             if i + 1 != len(query_files[query_file_now]):
                 return continue_pipe_query_file(query_file_stack, line_now)
-            return line_now
+            return continue_pipe_query_file(query_file_stack, line_now, True)
         else:
+            # print("open " + data)
             fd = os.open(data, os.O_WRONLY)
             query_file_stack.append((data, fd, 0))
             return continue_pipe_query_file(query_file_stack, line_now)
 
+    def __continue_pipe_query_file(q, query_file_stack, line_now):
+        result = continue_pipe_query_file(query_file_stack, line_now)
+        q.put((result, query_file_stack))
+
+    def try_continue_pipe_query_file(thread, queue, query_file_stack, line, line_expect):
+        if thread:
+            thread.join(0)
+            if not thread.is_alive():
+                line_expect, query_file_stack = queue.get()
+                line_expect = min(line_max, line_expect)
+                thread = None
+        if thread is None:
+            if line.isdigit() and int(line) >= line_expect and int(line) < line_max:
+                # print('finish:', line_expect)
+                thread = threading.Thread(target=__continue_pipe_query_file,
+                                          args=(queue, query_file_stack, line_expect))
+                thread.start()
+        return thread, query_file_stack, line_expect
+
     try:
+        # mutex = multiprocessing.Lock()
+
         shutil.rmtree(runtime_dir, ignore_errors=True)
         os.makedirs(runtime_dir, exist_ok=True)
         os.chdir(runtime_dir)
@@ -148,29 +172,23 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
                              stdout=subprocess.PIPE,
                              stderr=subprocess.DEVNULL,
                              universal_newlines=True
-                             #  stdout=out_fd, stderr=subprocess.DEVNULL)
                              )
         start = time.time_ns()
 
         base_query_fd = os.open(base_query_file, os.O_WRONLY)
         query_file_stack = [(base_query_file, base_query_fd, 0)]
-        line_expect = min(line_max, continue_pipe_query_file(query_file_stack, 0))
 
-        # fd = os.open('test.fifo', os.O_WRONLY)
-        # os.write(fd, data)
-        # os.close(fd)
-        # pipe_query_file(base_query_file)
+        queue = Queue()
+        thread, query_file_stack, line_expect = try_continue_pipe_query_file(None, queue, query_file_stack, "0", 0)
 
         stdout = []
         while p.poll() is None:
             line = p.stdout.readline()
             stdout.append(line)
-            # print(line)
             line = line.rstrip()
-            if line.isdigit() and int(line) >= line_expect:
-                line_expect = min(line_max, continue_pipe_query_file(query_file_stack, line_expect))
-
-        # p.wait(timeout)
+            # print(line)
+            thread, query_file_stack, line_expect = try_continue_pipe_query_file(
+                thread, queue, query_file_stack, line, line_expect)
 
         end = time.time_ns()
 
@@ -267,6 +285,8 @@ def test(program, query, data_dir, temp_dir, threads, times=5, generate_answer=F
     program = os.path.abspath(program)
     base_query_file = query + '.query'
     query_files = read_query(query_dir, base_query_file)
+    # import pprint
+    # pprint.pprint(query_files)
     results = []
 
     # exit(1)
