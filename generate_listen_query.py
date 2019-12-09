@@ -66,13 +66,14 @@ def generate2(query, listen_query, dest, split_list):
 
 
 if __name__ == '__main__':
-    split_list = [
-        [1],
-        1,
-        [1],
-        # 1,
-    ]
-    generate2('query/test.query', 'listen_test.query', 'query', split_list)
+    generate2('query/test.query', '1.query', 'query/listen', [[1]])
+    generate2('query/test.query', '2.query', 'query/listen', [[1], 1])
+    generate2('query/test.query', '3.query', 'query/listen', [1, [1], 1])
+    generate2('query/test.query', '4.query', 'query/listen', [[1], 1, [1], 1, [1]])
+    generate2('query/test.query', '5.query', 'query/listen', [[[1], [1]]])
+    generate2('query/test.query', '6.query', 'query/listen', [[[1], [1]], 1, [[1], [1]]])
+    generate2('query/test.query', '7.query', 'query/listen', [[[[1], [1]], [[1], [1]]], [[[1], [1]], [[1], [1]]]])
+    generate2('query/test.query', '8.query', 'query/listen', [1, [1, [1, [1, [1, [1, [1, [1]]]]]]]])
 
     # generate('query/test.query', 'listen_test.query', 'query', 1)
     # generate('query/single_read.query', 'listen_read.query', 'query', 3)

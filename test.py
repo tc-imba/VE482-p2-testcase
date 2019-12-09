@@ -22,24 +22,27 @@ import progressbar
 from logzero import logger
 
 TEST_QUERY = [
-    # ('test', 1),
-    ('listen_test', 1),
-    # ('single_read', 25),
-    # ('single_read_update', 25),
-    # ('single_read_dup', 35),
-    # ('single_insert_delete', 20),
-    # ('listen_read', 25),
-    # ('listen_read_update', 25),
-    # ('listen_read_dup', 35),
-    # ('listen_insert_delete', 20),
-    # 'few_read',
-    # 'few_read_update',
-    # 'few_read_dup',
-    # 'few_insert_delete',
-    # 'many_read',
-    # 'many_read_update',
-    # 'many_read_dup',
-    # 'many_insert_delete',
+    ('test', 1),
+    ('listen_1', 1),
+    ('listen_2', 1),
+    ('listen_3', 1),
+    ('listen_4', 1),
+    ('listen_5', 1),
+    ('listen_6', 1),
+    ('listen_7', 1),
+    ('listen_8', 1),
+    ('single_read', 25),
+    ('single_read_update', 25),
+    ('single_read_dup', 35),
+    ('single_insert_delete', 20),
+    ('few_read', 50),
+    ('few_read_update', 50),
+    ('few_read_dup', 50),
+    ('few_insert_delete', 50),
+    ('many_read', 50),
+    ('many_read_update', 50),
+    ('many_read_dup', 50),
+    ('many_insert_delete', 50),
 ]
 
 
@@ -147,7 +150,7 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
         if thread is None:
             if line.isdigit() and int(line) >= line_expect and int(line) < line_max:
                 # print('finish:', line_expect)
-                thread = threading.Thread(target=__continue_pipe_query_file,
+                thread = threading.Thread(target=__continue_pipe_query_file, daemon=True,
                                           args=(queue, query_file_stack, line_expect))
                 thread.start()
         return thread, query_file_stack, line_expect
@@ -317,7 +320,7 @@ def test(program, query, data_dir, temp_dir, threads, times=5, generate_answer=F
             exit(-1)
         for i in range(times):
             status, realtime = run(program, base_query_file, query_files, temp_dir, threads,
-                                   timeout=max(10, suggest_timeout * 2), answer_dir=answer_dir)
+                                   timeout=max(5, suggest_timeout * 2), answer_dir=answer_dir)
             results.append((status, realtime))
             logger.info('%2d: %s %.3f s', i + 1, status, realtime)
             if status == "AC":
