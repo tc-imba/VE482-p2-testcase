@@ -1,0 +1,17 @@
+SUM ( c1 c2 c4 cB cC ) FROM t3;
+SUM ( c1 c2 c4 cB cC ) FROM t2;
+MIN ( c1 c8 cC c4 c6 ) FROM t3;
+MIN ( c1 c8 cC c5 c7 ) FROM t2;
+MAX ( c1 c8 cC c4 c6 ) FROM t3;
+MAX ( c1 c8 cC c5 c7 ) FROM t2;
+SUB ( cC cC ) FROM t3;
+SUB ( cC cC cC ) FROM t2;
+MIN ( c1 c8 cC c4 c6 ) FROM t3;
+MIN ( c1 c8 cC c5 c7 ) FROM t2;
+MAX ( c1 c8 cC c4 c6 ) FROM t3;
+MAX ( c1 c8 cC c5 c7 ) FROM t2;
+LOAD ../db/t1.tbl;
+DUMP t1 t1_dump.tbl;
+DUMP t3 t3_dump.tbl;
+DUMP t2 t2_dump.tbl;
+QUIT;

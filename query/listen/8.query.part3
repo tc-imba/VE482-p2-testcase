@@ -1,0 +1,18 @@
+COUNT ( ) FROM t2;
+DUPLICATE ( ) FROM t2 WHERE ( c8 <= 0 );
+COUNT ( ) FROM t2;
+DUPLICATE ( ) FROM t2 WHERE ( c7 > 0 ) ( c8 >= 0 );
+COUNT ( ) FROM t2;
+SELECT ( KEY c7 c8 ) FROM t2 WHERE;
+SWAP ( c7 c8 ) FROM t2 WHERE ( c8 >= 0 );
+SELECT ( KEY c7 c8 ) FROM t2 WHERE;
+COUNT ( ) FROM t1 WHERE ( c3 < 100 ) ( c4 > 0 );
+SUM ( c1 c2 c4 cB cC ) FROM t1;
+SUM ( c1 c2 c4 cB cC ) FROM t2;
+ADD ( c1 c1 c1 c1 ) FROM t1 WHERE ( cD < 0 ) ( cE > -10 );
+ADD ( c1 c2 c2 c1 ) FROM t2 WHERE ( cD < 0 ) ( cF < 20 );
+SUB ( c1 c4 cB cC ) FROM t2 WHERE ( cC < 10 ) ( cE < 20 );
+SUM ( c1 c2 c4 cB cC ) FROM t1;
+SUM ( c1 c2 c4 cB cC ) FROM t2;
+MIN ( c1 c8 cC c4 c6 ) FROM t1;
+LISTEN ( 8.query.part4 );
