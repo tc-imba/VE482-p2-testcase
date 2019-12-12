@@ -15,4 +15,4 @@ SELECT ( KEY c0 c2 c5 c5 c0 cF c0 ) FROM t1 WHERE ( KEY = r10 );
 SELECT ( KEY c0 c2 c4 c2 c0 ) FROM t1 WHERE ( c8 < 0 ) ( c9 > 0 );
 COUNT ( ) FROM t2;
 DUPLICATE ( ) FROM t2 WHERE ( c8 = 0 );
-LISTEN ( 8.query.part3 );
+LISTEN ( test_listen_8.query.part3 );

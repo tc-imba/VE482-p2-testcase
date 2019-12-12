@@ -15,4 +15,4 @@ SUM ( c1 c2 c4 cB cC ) FROM t2;
 ADD ( c1 c1 c1 c1 ) FROM t3 WHERE ( cD < 0 ) ( cE > -10 );
 ADD ( c1 c2 c2 c1 ) FROM t2 WHERE ( cD < 0 ) ( cF < 20 );
 SUB ( c1 c4 cB cC ) FROM t2 WHERE ( cC < 10 ) ( cE < 20 );
-LISTEN ( 8.query.part7 );
+LISTEN ( test_listen_8.query.part7 );

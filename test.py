@@ -22,27 +22,29 @@ import progressbar
 from logzero import logger
 
 TEST_QUERY = [
-    ('test', 1),
-    ('listen_1', 1),
-    ('listen_2', 1),
-    ('listen_3', 1),
-    ('listen_4', 1),
-    ('listen_5', 1),
-    ('listen_6', 1),
-    ('listen_7', 1),
-    ('listen_8', 1),
+    ('test_quit', 0),
+    ('test_management', 1),
+    ('test_all', 1),
+    ('test_listen_1', 1),
+    ('test_listen_2', 1),
+    ('test_listen_3', 1),
+    ('test_listen_4', 1),
+    ('test_listen_5', 1),
+    ('test_listen_6', 1),
+    ('test_listen_7', 1),
+    ('test_listen_8', 1),
     ('single_read', 25),
     ('single_read_update', 25),
     ('single_read_dup', 35),
     ('single_insert_delete', 20),
-    ('few_read', 50),
-    ('few_read_update', 50),
-    ('few_read_dup', 50),
-    ('few_insert_delete', 50),
-    ('many_read', 50),
-    ('many_read_update', 50),
-    ('many_read_dup', 50),
-    ('many_insert_delete', 50),
+    ('few_read', 20),
+    ('few_read_update', 25),
+    ('few_read_dup', 105),
+    ('few_insert_delete', 15),
+    ('many_read', 20),
+    ('many_read_update', 20),
+    ('many_read_dup', 20),
+    ('many_insert_delete', 20),
 ]
 
 
@@ -148,7 +150,7 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
                 line_expect = min(line_max, line_expect)
                 thread = None
         if thread is None:
-            if line.isdigit() and int(line) >= line_expect and int(line) < line_max:
+            if line.isdigit() and int(line) >= line_expect and (int(line) < line_max or line_max == 0):
                 # print('finish:', line_expect)
                 thread = threading.Thread(target=__continue_pipe_query_file, daemon=True,
                                           args=(queue, query_file_stack, line_expect))
@@ -167,7 +169,6 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
             os.mkfifo(query_file)
             for data_lines, data in query_file_data:
                 line_max += data_lines
-        # print(line_max)
 
         # out_fd = os.open('stdout', os.O_WRONLY | os.O_CREAT)
 
@@ -237,7 +238,7 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
     q.put((status, realtime, exception))
 
 
-def run(program, base_query_file, query_files, temp_dir, threads, timeout=1000, answer_dir=None):
+def run(program, base_query_file, query_files, temp_dir, threads, timeout=1000.0, answer_dir=None):
     q = multiprocessing.Queue()
     p = multiprocessing.Process(target=__run,
                                 args=(q, program, base_query_file, query_files, temp_dir, threads, answer_dir,))
@@ -320,7 +321,7 @@ def test(program, query, data_dir, temp_dir, threads, times=5, generate_answer=F
             exit(-1)
         for i in range(times):
             status, realtime = run(program, base_query_file, query_files, temp_dir, threads,
-                                   timeout=max(5, suggest_timeout * 2), answer_dir=answer_dir)
+                                   timeout=max(5.0, suggest_timeout * 1.1), answer_dir=answer_dir)
             results.append((status, realtime))
             logger.info('%2d: %s %.3f s', i + 1, status, realtime)
             if status == "AC":

@@ -15,4 +15,4 @@ SUB ( c1 c4 cB cC ) FROM t2 WHERE ( cC < 10 ) ( cE < 20 );
 SUM ( c1 c2 c4 cB cC ) FROM t1;
 SUM ( c1 c2 c4 cB cC ) FROM t2;
 MIN ( c1 c8 cC c4 c6 ) FROM t1;
-LISTEN ( 8.query.part4 );
+LISTEN ( test_listen_8.query.part4 );

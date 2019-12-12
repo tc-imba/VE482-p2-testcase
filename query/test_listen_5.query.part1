@@ -1,0 +1,2 @@
+LISTEN ( test_listen_5.query.part2 );
+LISTEN ( test_listen_5.query.part3 );
