@@ -5,3 +5,4 @@ humanize
 memory-tempfile
 progressbar2
 logzero
+jinja2

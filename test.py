@@ -98,6 +98,14 @@ def build(project_dir, build_dir, threads, clean=False):
     return os.path.join(project_dir, build_dir, 'lemondb')
 
 
+# simply sort tables by lines because they are unordered
+def sort_tables(table_dir):
+    for filename in os.listdir(table_dir):
+        if filename.endswith('.tbl'):
+            filename = os.path.join(table_dir, filename)
+            subprocess.run(['sort', filename, '-o', filename])
+
+
 def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_dir):
     if answer_dir:
         answer_dir = os.path.abspath(answer_dir)
@@ -209,12 +217,12 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
         realtime = (end - start) / 1e9
         os.chdir(working_dir)
 
+        sort_tables(runtime_dir)
         if answer_dir and status == "AC":
             diff = subprocess.run(["diff", "-qbB", answer_dir, runtime_dir],
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             if diff.returncode != 0:
                 status = "WA"
-
 
     except subprocess.TimeoutExpired:
         status = "TLE"
@@ -245,6 +253,8 @@ def run(program, base_query_file, query_files, temp_dir, threads, timeout=1000.0
     p.start()
     p.join(timeout)
     p.kill()
+    # kill lemondb with pkill
+    subprocess.run(['pkill', '-f', 'lemondb'])
     if p.exitcode == 0:
         status, realtime, exception = q.get()
         if exception:
@@ -286,7 +296,6 @@ def test(program, query, data_dir, temp_dir, threads, times=5, generate_answer=F
     query_dir = os.path.join(data_dir, 'query')
     answer_dir = os.path.join(data_dir, 'answer', query)
 
-    program = os.path.abspath(program)
     base_query_file = query + '.query'
     query_files = read_query(query_dir, base_query_file)
     # import pprint
@@ -321,7 +330,7 @@ def test(program, query, data_dir, temp_dir, threads, times=5, generate_answer=F
             exit(-1)
         for i in range(times):
             status, realtime = run(program, base_query_file, query_files, temp_dir, threads,
-                                   timeout=max(5.0, suggest_timeout * 1.1), answer_dir=answer_dir)
+                                   timeout=max(5.0, suggest_timeout * 1.2), answer_dir=answer_dir)
             results.append((status, realtime))
             logger.info('%2d: %s %.3f s', i + 1, status, realtime)
             if status == "AC":
@@ -380,6 +389,7 @@ def calculate_average_time(data):
 
 pbar = None
 progress_now = 0
+progress_max_value = 0
 
 
 def update_pbar(value):
@@ -387,7 +397,7 @@ def update_pbar(value):
     global progress_now
     if pbar:
         progress_now += value
-        pbar.update(progress_now)
+        pbar.update(min(progress_max_value, progress_now))
 
 
 def save_result(results, columns, time_path, status_path):
@@ -404,14 +414,15 @@ def save_result(results, columns, time_path, status_path):
 
 
 @click.command()
-@click.option('-p', '--project-dir', required=True, help='LemonDB Directory.')
+@click.option('-p', '--project-dir', help='LemonDB Directory.')
+@click.option('-b', '--binary', default='', help='LemonDB Binary.')
 @click.option('--rebuild', is_flag=True, help='Rebuild tmpfs and project')
 @click.option('-d', '--data-dir', default='.', help='Data Directory (contains sample and db).')
 @click.option('--generate-answer', is_flag=True, help='Generate answer.')
 @click.option('--times', default=5, type=int)
 @click.option('--threads', default=0, type=int)
-def main(project_dir, rebuild, data_dir, generate_answer, times, threads):
-    global pbar
+def main(project_dir, binary, rebuild, data_dir, generate_answer, times, threads):
+    global pbar, progress_max_value
     progressbar.streams.wrap_stderr()
 
     platform_info = get_platform()
@@ -420,7 +431,20 @@ def main(project_dir, rebuild, data_dir, generate_answer, times, threads):
     logger.info(platform_info)
 
     temp_dir = init_tmpfs(data_dir)
-    program = build(project_dir, 'build', threads, clean=rebuild)
+    if project_dir:
+        project_dir = os.path.abspath(project_dir)
+        program = build(project_dir, 'build', threads, clean=rebuild)
+    else:
+        if binary:
+            program = binary
+        else:
+            program = os.path.join(os.path.dirname(__file__), 'bin', 'lemondb')
+        project_dir = os.path.abspath(os.path.dirname(program))
+    program = os.path.abspath(program)
+
+    logger.info('Project Dir: %s', project_dir)
+    logger.info('LemonDB: %s', program)
+
     answer_time_path = os.path.join(data_dir, 'answer', 'time.csv')
     answer_status_path = os.path.join(data_dir, 'answer', 'status.csv')
     results = []

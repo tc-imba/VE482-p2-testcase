@@ -1,0 +1,91 @@
+\NeedsTeXFormat{LaTeX2e}[1994/06/01]
+\ProvidesPackage{ve482}[2019/03/01 ve482 documents]
+
+% gemoetry and spacing
+\RequirePackage[margin=2.25cm]{geometry}
+\RequirePackage{setspace}
+\onehalfspacing
+\setlength\parindent{0pt}
+
+% fonts and links
+\RequirePackage{fontspec}
+%\renewcommand{\familydefault}{\sfdefault}
+\setsansfont{cmunb}[        %CMU Bright for text
+  Extension=.otf,
+  UprightFont=*mr,
+  ItalicFont=*mo,
+  BoldFont=*bx, % semibold
+  BoldItalicFont=*so, % semibold oblique
+  NFSSFamily=cmbr
+]
+\setmainfont{CMU Bright}
+%\setmonofont{CMU Typewriter Text}
+\setmonofont[Scale=.8]{DejaVu Sans Mono}
+\RequirePackage{cmbright}
+\RequirePackage[cm]{sfmath}
+
+\RequirePackage[colorlinks=true, breaklinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue]{hyperref}
+
+% misc
+\RequirePackage{booktabs,multirow,multicol,varwidth}
+\RequirePackage{enumitem}
+\RequirePackage{amsmath,amssymb}
+\RequirePackage{physics}
+\RequirePackage{ulem}
+
+%\RequirePackage{enumerate}
+\setlist{noitemsep}
+
+% cn
+%\RequirePackage{CJKutf8}
+%\newcommand{\cn}[1]{\begin{CJK}{UTF8}{gkai}#1\end{CJK}}
+%\newcommand{\cntitle}[1]{\cn{\Huge #1}}
+%\RequirePackage{xeCJK}
+%\setCJKsansfont{WenQuanYi Zen Hei Sharp}
+%\setCJKsansfont{AR PL UKai TW MBE:style=Book}
+%\setCJKmainfont{AR PL UKai TW MBE:style=Book}
+%\RequirePackage{ctex}
+
+
+% boxes
+\RequirePackage{tcolorbox}
+\tcbuselibrary{skins,raster}
+
+% information
+\newcommand*{\subtitle}[1]{\gdef\@subtitle{#1}}
+\newcommand*{\@subtitle}{Subtitle}
+\newcommand*{\semester}[1]{\gdef\@semester{#1}\def\thesemester{\@semester}}
+\newcommand*{\@semester}{}
+\renewcommand*{\year}[1]{\gdef\@year{#1}}
+\newcommand*{\@year}{}
+\newcommand*{\institute}[1]{\gdef\@institute{#1}}
+\newcommand*{\@institute}{UM-JI}
+\newcommand*{\blockinfo}[1]{\gdef\@blockinfo{#1}}
+\newcommand*{\@blockinfo}{\hspace{.5cm}General information}
+\newcommand*{\instructor}[1]{\gdef\@instructor{#1}}
+\newcommand*{\@instructor}{}
+\newcommand{\noinstructor}{\renewcommand*{\@instructor}{}}
+\newcommand{\subtitlenumber}[1]{\gdef\@subtitlenumber{#1}}
+\newcommand{\@subtitlenumber}{}
+\date{}
+\renewcommand{\thesubsection}{Exercise \@subtitlenumber.\arabic{subsection}}
+
+
+% maketitle
+\newgeometry{margin=2cm,top=1.75cm}
+\renewcommand{\maketitle}{
+  \begin{tcbraster}[raster columns=2, raster equal height, raster column skip=.65cm,raster column skip=.75cm]
+    \begin{tcolorbox}[colback=black!4!white,colframe=white!50!black]
+      {\Large	{\bf \@title} \ifx\@instructor\empty\vspace{.75cm}\else\vspace{.15cm}\fi
+
+        { \it \@subtitle  \quad \ifx\@date\@empty\else(\@date)\fi}}\\
+      \ifx\@instructor\empty\else Instructor:~\@instructor\\\fi
+    \end{tcolorbox}
+    \begin{tcolorbox}[blanker,before skip=6pt,after skip=6pt,borderline west={3mm}{0pt}{black!65!white}]
+      \@blockinfo
+    \end{tcolorbox}
+  \end{tcbraster}
+  \par\bigskip
+}
+
+\endinput

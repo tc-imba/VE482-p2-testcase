@@ -1,0 +1,66 @@
+\documentclass[landscape]{article}
+\usepackage{./ve482}
+
+\title{VE482 --- Introduction to\\ Operating Systems}
+\subtitle{Payroll (Group {{ group }})}
+\semester{Fall}
+\year{2019}
+\blockinfo{
+	\begin{center}
+		\textbf{Salary conditions}
+	\end{center}
+	\begin{itemize}\itemsep .25cm
+		\item Documentation (30 pts)
+		\item Correctness (30 pts)
+		\item Performance (90 pts)
+	\end{itemize}
+}
+
+% whether or not to display the instructor line
+\noinstructor
+
+\begin{document}
+\maketitle
+
+\section{Documentation}
+
+Not included in this report.
+
+\section{Correctness}
+
+In the listen queries, {\color{red}TLE} means that your program is not able to respond to queries piped into the listened files.
+
+\begin{table}[!htbp]
+\centering
+{{ correctness }}
+\caption{Result of correctness cases.}
+\end{table}
+
+\newpage
+
+\section{Performance}
+
+In the performance test, any error will lead to zero for the test case. The fastest and slowest time for each case are omitted.
+
+{\color{red}TLE} means that your program exceeds 1.2 times of the single thread base program so it is unnecessary to test this case anymore.
+
+\begin{table}[!htbp]
+\centering
+{{ performance }}
+\caption{Result of performance cases.}
+\end{table}
+
+\section*{Appendix}
+
+Tested on {{ cpu }}, {{ threads }} threads, {{ memory }} memory. All files are stored on a memory-based fs.
+
+The source code of the test framework can be found on \url{https://github.com/tc-imba/VE482-p2-testcase}. \bigskip
+
+Error Names:
+\begin{itemize}
+\item {\color{red}TLE}: Time Limit Exceeded
+\item {\color{red}RTE}: Runtime Error
+\item {\color{red}WA}: Wrong Answer
+\end{itemize}
+	
+\end{document}
