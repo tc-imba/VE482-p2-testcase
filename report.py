@@ -6,10 +6,13 @@ import subprocess
 import shlex
 import math
 import statistics
+import re
 
 import click
 import jinja2
 from test import get_platform, calculate_average_time
+import git
+import gitfame
 
 CORRECTNESS_QUERY = [
     ('test_quit', 2),
@@ -46,6 +49,30 @@ PERFORMANCE_QUERY = [
     ('many_read_dup', 1),
     ('many_insert_delete', 1),
 ]
+
+
+# https://stackoverflow.com/questions/16259923/how-can-i-escape-latex-special-characters-inside-django-templates
+def tex_escape(text):
+    """
+        :param text: a plain text message
+        :return: the message escaped to appear correctly in LaTeX
+    """
+    conv = {
+        '&': r'\&',
+        '%': r'\%',
+        '$': r'\$',
+        '#': r'\#',
+        '_': r'\_',
+        '{': r'\{',
+        '}': r'\}',
+        '~': r'\textasciitilde{}',
+        '^': r'\^{}',
+        '\\': r'\textbackslash{}',
+        '<': r'\textless{}',
+        '>': r'\textgreater{}',
+    }
+    regex = re.compile('|'.join(re.escape(str(key)) for key in sorted(conv.keys(), key=lambda item: - len(item))))
+    return regex.sub(lambda match: conv[match.group()], text)
 
 
 def generate_result_times(data, data_length, remove_min_max=False):
@@ -111,7 +138,7 @@ def generate_correctness_table(data, data_length):
     output += '\\hline'
     output += '\nTotal & \\multicolumn{%d}{c|}{/} & %d & %d' % (data_length, total_score, 30)
     output += '\n\\end{tabular}\n'
-    print(output)
+    # print(output)
     return output
 
 
@@ -124,7 +151,7 @@ def generate_performance_table(data, data_length, base_data):
         result = data[query]
         log_ratio = 0
         if result['overall_status'] == 'AC':
-            log_ratio = math.log2(max(0.0, base_data[query]['average_time'] / result['average_time']))
+            log_ratio = max(0.0, math.log2(base_data[query]['average_time'] / result['average_time']))
         log_ratios.append(log_ratio)
     log_ratio_stddev = statistics.stdev(log_ratios)
     log_ratio_sum = sum(log_ratios)
@@ -146,7 +173,41 @@ def generate_performance_table(data, data_length, base_data):
     output += '\nTotal & \\multicolumn{%d}{c|}{/} & \\multicolumn{2}{c|}{/} & %.3f & %.3f' % (
         data_length, log_ratio_sum / len(log_ratios), total_score)
     output += '\n\\end{tabular}\n'
-    print(output)
+    # print(output)
+    return output
+
+
+def generate_contribution_table(data):
+    output = '\\begin{tabular}{r|cc|cc|cc}\n'
+    output += 'Author & Lines & \\% & Commits & \\% & Files & \\% \\\\\\hline'
+    total_lines = 0
+    total_commits = 0
+    total_files = 0
+    for result in data:
+        total_lines += int(result['lines'])
+        total_commits += int(result['commits'])
+        total_files += int(result['files'])
+        output += '\n %s & %s & %s & %s & %s & %s & %s \\\\' % \
+                  (tex_escape(result['author']), result['lines'], result['lines%'],
+                   result['commits'], result['commits%'], result['files'], result['files%'])
+    output += '\\hline'
+    output += '\nTotal & %d & 100.0 & %d & 100.0 & %d & 100.0' % (total_lines, total_commits, total_files)
+    output += '\n\\end{tabular}\n'
+    # print(output)
+    return output
+
+
+def generate_git_log(data):
+    output = '\\begin{itemize}\n'
+    for commit in data:
+        output += '\\item\n'
+        output += 'commit %s \\\\\n' % commit['id']
+        output += 'Author: %s <%s> \\\\\n' % (tex_escape(commit['author']), tex_escape(commit['email']))
+        output += 'Date: %s \\\\\n' % commit['date']
+        output += 'Message: %s\n' % tex_escape(commit['message'])
+
+    output += '\\end{itemize}\n'
+    # print(output)
     return output
 
 
@@ -186,12 +247,57 @@ def get_query_data(time_path, status_path):
     return query_data, query_data_length
 
 
+def get_git_data(project_dir):
+    p = subprocess.run(
+        ['python', '-m', 'gitfame', '--sort=commits', '-wt', '--incl=.*\\.[cht][ph]{0,2}$', '--format=csv',
+         project_dir],
+        stdout=subprocess.PIPE,
+        universal_newlines=True
+    )
+    reader = csv.reader(p.stdout.split('\n'))
+    first = True
+    git_data = {
+        'contribution': [],
+        'log': [],
+    }
+    for row in reader:
+        if first:
+            first = False
+            # print(row)
+        elif len(row) == 0:
+            break
+        else:
+            git_data['contribution'].append({
+                'author': row[0],
+                'lines': row[1],
+                'lines%': row[4],
+                'commits': row[2],
+                'commits%': row[5],
+                'files': row[3],
+                'files%': row[6]
+            })
+
+    repo = git.Repo(project_dir)
+    for commit in repo.iter_commits('master'):
+        git_data['log'].append({
+            'id': str(commit),
+            'author': str(commit.author),
+            'email': str(commit.author.email),
+            'date': str(commit.committed_datetime),
+            'message': str(commit.message)
+        })
+
+    return git_data
+
+
 @click.command()
-@click.option('-p', '--project-dir', required=True, help='LemonDB Directory.')
-@click.option('-g', '--group', required=True, help='Group Number.')
-def main(project_dir, group):
+@click.option('-p', '--project-dir', required=True, help='LemonDB Directory (a git repo).')
+@click.option('-t', '--team', required=True, help='Group Number.')
+def main(project_dir, team):
     time_path = os.path.join(project_dir, 'time.csv')
     status_path = os.path.join(project_dir, 'status.csv')
+
+    git_data = get_git_data(project_dir)
 
     query_data, query_data_length = get_query_data(time_path, status_path)
     base_query_data, base_query_data_length = get_query_data('time.csv', 'status.csv')
@@ -202,11 +308,17 @@ def main(project_dir, group):
     with open(os.path.join('report', 'report.tex')) as file:
         template = jinja2.Template(file.read())
 
+    platform_info = get_platform()
+    for key in platform_info.keys():
+        platform_info[key] = tex_escape(str(platform_info[key]))
+
     template_data = {
-        'group': group,
+        'team': team,
         'correctness': generate_correctness_table(query_data, query_data_length),
         'performance': generate_performance_table(query_data, query_data_length, base_query_data),
-        **get_platform()
+        'contribution': generate_contribution_table(git_data['contribution']),
+        'log': generate_git_log(git_data['log']),
+        **platform_info
     }
 
     output_dir = tempfile.mkdtemp(prefix='lemondb.', suffix='.report')
@@ -219,7 +331,7 @@ def main(project_dir, group):
     command = 'xelatex -shell-escape -synctex=1 -interaction=nonstopmode %s' % report_path
     args = shlex.split(command)
     subprocess.run(args, cwd=output_dir, stdout=subprocess.PIPE)
-    shutil.copy2(os.path.join(output_dir, 'report.pdf'), os.path.join(project_dir, 'report.pdf'))
+    shutil.copy2(os.path.join(output_dir, 'report.pdf'), os.path.join(project_dir, 'team%s_report.pdf') % team)
     shutil.rmtree(output_dir)
 
 

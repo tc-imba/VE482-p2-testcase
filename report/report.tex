@@ -2,7 +2,7 @@
 \usepackage{./ve482}
 
 \title{VE482 --- Introduction to\\ Operating Systems}
-\subtitle{Payroll (Group {{ group }})}
+\subtitle{Payroll (Team {{ team }})}
 \semester{Fall}
 \year{2019}
 \blockinfo{
@@ -13,6 +13,7 @@
 		\item Documentation (30 pts)
 		\item Correctness (30 pts)
 		\item Performance (90 pts)
+		\item Contribution
 	\end{itemize}
 }
 
@@ -50,9 +51,23 @@ In the performance test, any error will lead to zero for the test case. The fast
 \caption{Result of performance cases.}
 \end{table}
 
+\section{Contribution}
+
+The git commits analysis only considered C/C++ source files. Other contributions (eg. documentation) can also be considered besides.
+
+\begin{table}[!htbp]
+\centering
+{{ contribution }}
+\caption{Result of git commits analysis.}
+\end{table}
+
+\newpage
+
 \section*{Appendix}
 
-Tested on {{ cpu }}, {{ threads }} threads, {{ memory }} memory. All files are stored on a memory-based fs.
+Tested on {{ platform }}, with {{ cpu }}, {{ threads }} threads and {{ memory }} memory.
+
+All files are stored on a memory-based fs.
 
 The source code of the test framework can be found on \url{https://github.com/tc-imba/VE482-p2-testcase}. \bigskip
 
@@ -62,5 +77,11 @@ Error Names:
 \item {\color{red}RTE}: Runtime Error
 \item {\color{red}WA}: Wrong Answer
 \end{itemize}
-	
+
+\section*{Git Log}
+
+\begin{multicols}{2}
+{{ log }}
+\end{multicols}
+
 \end{document}

@@ -6,3 +6,5 @@ memory-tempfile
 progressbar2
 logzero
 jinja2
+gitpython
+git-fame

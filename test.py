@@ -12,6 +12,7 @@ import multiprocessing
 import threading
 from queue import Queue
 import re
+import platform
 
 import click
 import cpuinfo
@@ -347,6 +348,7 @@ def get_platform():
     cpu_info = cpuinfo.get_cpu_info()
     memory_info = psutil.virtual_memory()
     return {
+        'platform': platform.platform(),
         'cpu': cpu_info['brand'],
         'threads': cpu_info['count'],
         'memory': humanize.naturalsize(memory_info.total, gnu=True)
