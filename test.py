@@ -347,9 +347,14 @@ def test(program, query, data_dir, temp_dir, threads, times=5, generate_answer=F
 def get_platform():
     cpu_info = cpuinfo.get_cpu_info()
     memory_info = psutil.virtual_memory()
+    brand = ''
+    if 'brand_raw' in cpu_info:
+        brand = cpu_info['brand_raw']
+    elif 'brand' in cpu_info:
+        brand = cpu_info['brand']
     return {
         'platform': platform.platform(),
-        'cpu': cpu_info['brand'],
+        'cpu': brand,
         'threads': cpu_info['count'],
         'memory': humanize.naturalsize(memory_info.total, gnu=True)
     }
