@@ -1,10 +1,10 @@
 \documentclass[landscape]{article}
-\usepackage{./ve482}
+\usepackage{ve482}
 
 \title{VE482 --- Introduction to\\ Operating Systems}
 \subtitle{Payroll (Team {{ team }})}
 \semester{Fall}
-\year{2019}
+\year{2020}
 \blockinfo{
 	\begin{center}
 		\textbf{Salary conditions}
@@ -53,7 +53,9 @@ In the performance test, any error will lead to zero for the test case. The fast
 
 \section{Contribution}
 
-The git commits analysis only considered C/C++ source files. Other contributions (eg. documentation) can also be considered besides.
+The git commits analysis only considered C/C++ source files. It will not consider the commits whose authors are not included in the commit.json of the project. 
+The total contribution percentage may not be 100\% since there is an initial commit from the git server admin.
+Other contributions (eg. documentation) can also be considered besides.
 
 \begin{table}[!htbp]
 \centering
@@ -73,6 +75,7 @@ The source code of the test framework can be found on \url{https://github.com/tc
 
 Error Names:
 \begin{itemize}
+\item {\color{red}CE}: Compile Error
 \item {\color{red}TLE}: Time Limit Exceeded
 \item {\color{red}RTE}: Runtime Error
 \item {\color{red}WA}: Wrong Answer
