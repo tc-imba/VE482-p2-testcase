@@ -23,5 +23,5 @@ python3 test.py -p <project-dir> --times=10
 ## Generate Report
 
 ```bash
-python3 report.py -p <project-dir> -g <group-number>
+python3 report.py -p <project-dir> -t <group-number>
 ```
