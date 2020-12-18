@@ -7,6 +7,7 @@ import shlex
 import math
 import statistics
 import re
+import json
 
 import click
 import jinja2
@@ -163,7 +164,10 @@ def generate_performance_table(data, data_length, base_data):
         base_time = base_data[query]['average_time']
         average_time = '/'
         log_ratio = log_ratios[i]
-        score = total_score * log_ratio / log_ratio_sum
+        if log_ratio_sum == 0:
+            score = 0
+        else:
+            score = total_score * log_ratio / log_ratio_sum
         if result['overall_status'] == 'AC':
             average_time = '%.3f' % result['average_time']
         output += '\n%s & %s & %s & %.3f & %.3f & %.3f \\\\' % (
@@ -177,21 +181,56 @@ def generate_performance_table(data, data_length, base_data):
     return output
 
 
-def generate_contribution_table(data):
+def generate_contribution_table(data, _author_sjtu_id, _sjtu_id_list):
     output = '\\begin{tabular}{r|cc|cc|cc}\n'
     output += 'Author & Lines & \\% & Commits & \\% & Files & \\% \\\\\\hline'
     total_lines = 0
+    total_lines_percent = 0.0
     total_commits = 0
+    total_commits_percent = 0.0
     total_files = 0
+    total_files_percent = 0.0
+    new_data = []
+
+    for _sjtu_id in _sjtu_id_list:
+        new_data.append({
+            'author': _sjtu_id,
+            'lines': 0,
+            'lines%': 0.0,
+            'commits': 0,
+            'commits%': 0.0,
+            'files': 0,
+            'files%':0.0
+        })
+    
     for result in data:
+        if result['author'] in _author_sjtu_id:
+            author = _author_sjtu_id[result['author']]
+            _index = next( i for i,v in enumerate(new_data) if v['author'] == author)
+            for _key in new_data[_index].keys():
+                if _key != 'author':
+                    if _key in set(['lines','commits','files']):
+                        new_data[_index][_key] += int(result[_key])
+                    else:
+                        new_data[_index][_key] += float(result[_key])
+        # get away git admin
+        elif result['author'] in set( ['makersmelx','jiayao']):
+            continue
+        # else:
+        #     new_data.append(result)
+
+    for result in new_data:
         total_lines += int(result['lines'])
+        total_lines_percent += result['lines%']
         total_commits += int(result['commits'])
+        total_commits_percent += (result['commits%'])
         total_files += int(result['files'])
+        total_files_percent += (result['files%'])
         output += '\n %s & %s & %s & %s & %s & %s & %s \\\\' % \
                   (tex_escape(result['author']), result['lines'], result['lines%'],
                    result['commits'], result['commits%'], result['files'], result['files%'])
     output += '\\hline'
-    output += '\nTotal & %d & 100.0 & %d & 100.0 & %d & 100.0' % (total_lines, total_commits, total_files)
+    output += '\nTotal & %d & %.1f & %d & %.1f & %d & %.1f' % (total_lines,total_lines_percent, total_commits,total_commits_percent, total_files,total_files_percent)
     output += '\n\\end{tabular}\n'
     # print(output)
     return output
@@ -249,7 +288,7 @@ def get_query_data(time_path, status_path):
 
 def get_git_data(project_dir):
     p = subprocess.run(
-        ['python', '-m', 'gitfame', '--sort=commits', '-wt', '--incl=.*\\.[cht][ph]{0,2}$', '--format=csv',
+        ['python3', '-m', 'gitfame', '--sort=commits', '-wt', '--incl=.*\\.[cht][ph]{0,2}$', '--format=csv',
          project_dir],
         stdout=subprocess.PIPE,
         universal_newlines=True
@@ -311,12 +350,23 @@ def main(project_dir, team):
     platform_info = get_platform()
     for key in platform_info.keys():
         platform_info[key] = tex_escape(str(platform_info[key]))
+    commit_json_file = os.path.join(project_dir, 'commit.json')
+    author_sjtu_id = {}
+    sjtu_id_list = []
 
+    if os.path.exists(commit_json_file):
+        with open(commit_json_file) as commit_json:
+            sjtu_id_author = json.load(commit_json)
+            sjtu_id_list = sjtu_id_author.keys()
+            for _sjtu_id,git_usernames in sjtu_id_author.items():
+                for _username in git_usernames:
+                    author_sjtu_id[_username] = _sjtu_id
+    
     template_data = {
         'team': team,
         'correctness': generate_correctness_table(query_data, query_data_length),
         'performance': generate_performance_table(query_data, query_data_length, base_query_data),
-        'contribution': generate_contribution_table(git_data['contribution']),
+        'contribution': generate_contribution_table(git_data['contribution'],author_sjtu_id,sjtu_id_list),
         'log': generate_git_log(git_data['log']),
         **platform_info
     }
