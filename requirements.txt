@@ -3,7 +3,7 @@ py-cpuinfo
 psutil
 humanize
 memory-tempfile
-progressbar2
+enlighten
 logzero
 jinja2
 gitpython

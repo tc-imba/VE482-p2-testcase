@@ -21,6 +21,7 @@ import psutil
 import memory_tempfile
 import progressbar
 from logzero import logger
+import enlighten
 
 TEST_QUERY = [
     ('test_quit', 0),
@@ -124,10 +125,10 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
         if len(query_file_stack) == 0:
             return line_now
         query_file_now, fd, i = query_file_stack[-1]
-        # print(query_file_now, fd, i, line_now)
+        # print("log ", query_file_now, fd, i, line_now)
         if i == len(query_files[query_file_now]):
-            # print("close " + query_file_now)
             os.close(fd)
+            # print("close " + query_file_now)
             query_file_stack.pop()
             return continue_pipe_query_file(query_file_stack, line_now, close_current)
         if close_current:
@@ -136,6 +137,7 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
         query_file_stack[-1] = (query_file_now, fd, i + 1)
         if data_lines > 0:
             # print(data)
+            # print("write", data_lines, "lines")
             os.write(fd, data)
             line_now += data_lines
             if i + 1 != len(query_files[query_file_now]):
@@ -160,7 +162,7 @@ def __run(q, program, base_query_file, query_files, temp_dir, threads, answer_di
                 thread = None
         if thread is None:
             if line.isdigit() and int(line) >= line_expect and (int(line) < line_max or line_max == 0):
-                # print('finish:', line_expect)
+                # print('finish ', line_expect)
                 thread = threading.Thread(target=__continue_pipe_query_file, daemon=True,
                                           args=(queue, query_file_stack, line_expect))
                 thread.start()
@@ -404,7 +406,8 @@ def update_pbar(value):
     global progress_now
     if pbar:
         progress_now += value
-        pbar.update(min(progress_max_value, progress_now))
+        if progress_now <= progress_max_value:
+            pbar.update(value)
 
 
 def save_result(results, columns, time_path, status_path):
@@ -472,20 +475,22 @@ def main(project_dir, binary, rebuild, data_dir, generate_answer, times, threads
                     query = row[0]
                     time_data = list(map(lambda x: float(x), row[1:]))
                     base_time[query] = calculate_average_time(time_data)
-                    total_base_time += base_time[query]
-    else:
-        for query, unit_time in TEST_QUERY:
-            base_time[query] = unit_time
-            total_base_time += base_time[query]
 
-            # widgets = [progressbar.Bar('>'), ' ', progressbar.ETA()]
-    # pbar = progressbar.ProgressBar(widgets=widgets, maxval=len(TEST_QUERY) * times).start()
-    widgets = [
-        ' [', progressbar.Percentage(), '] ',
-        progressbar.Bar(),
-        ' (', progressbar.ETA(), ') \n']
+    for query, unit_time in TEST_QUERY:
+        if query not in base_time:
+            base_time[query] = unit_time
+        total_base_time += base_time[query]
+
     progress_max_value = total_base_time * times
-    pbar = progressbar.ProgressBar(max_value=progress_max_value, widgets=widgets).start()
+    BAR_FMT = u'{desc}{desc_pad}{percentage:3.0f}%|{bar}| {count:{len_total}.1f}/{total:.1f} ' + \
+              u'[{elapsed}<{eta}, {rate:.2f}{unit_pad}{unit}/s]'
+
+    COUNTER_FMT = u'{desc}{desc_pad}{count:.1f} {unit}{unit_pad}' + \
+                  u'[{elapsed}, {rate:.2f}{unit_pad}{unit}/s]{fill}'
+
+    manager = enlighten.get_manager()
+    pbar = manager.counter(total=progress_max_value, desc='Progress', unit='ticks',
+                           bar_format=BAR_FMT, counter_format=COUNTER_FMT)
 
     for query, unit_time in TEST_QUERY:
         result = test(program, query, data_dir, temp_dir, threads,
@@ -494,7 +499,7 @@ def main(project_dir, binary, rebuild, data_dir, generate_answer, times, threads
         results.append(result)
 
         # break
-    pbar.finish()
+    pbar.close()
 
     logger.debug(results)
     if generate_answer:
