@@ -14,6 +14,7 @@ import jinja2
 from test import get_platform, calculate_average_time
 import git
 import gitfame
+import chardet
 
 CORRECTNESS_QUERY = [
     ('test_quit', 2),
@@ -355,8 +356,11 @@ def main(project_dir, team):
     sjtu_id_list = []
 
     if os.path.exists(commit_json_file):
-        with open(commit_json_file) as commit_json:
-            sjtu_id_author = json.load(commit_json)
+        with open(commit_json_file, 'rb') as file:
+            bytes_str = file.read()
+            charset = chardet.detect(bytes_str)['encoding'] or 'utf-8'
+            commit_json = bytes_str.decode(charset)
+            sjtu_id_author = json.loads(commit_json)
             sjtu_id_list = sjtu_id_author.keys()
             for _sjtu_id,git_usernames in sjtu_id_author.items():
                 for _username in git_usernames:

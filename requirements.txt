@@ -8,3 +8,4 @@ logzero
 jinja2
 gitpython
 git-fame
+chardet
